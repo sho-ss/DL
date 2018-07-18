@@ -29,6 +29,13 @@ class MaxOut():
 			self.logger.info("unit_list: {}".format(self.unit_list))
 
 	def __create_unit_list(self, n_in, n_out, n_hiddens):
+		"""
+		@return unit_list list
+			e.g. 784 * 100 * 10 3layer perceptron
+			unit_list = [[784, 100], [100, 10]]
+			e.g. input; 784, hidden1 channel_num:100, maxout_unit:50, output: 10 3layer perceptron
+			unit_list = [[784, 100, 50], [50, 10]]
+		"""
 		input_dim = n_in
 		unit_list = []
 		for n_hidden in n_hiddens:
@@ -90,12 +97,15 @@ class MaxOut():
 		self.activations[0] = self.x
 		for i, units in enumerate(self.unit_list):
 			name = "layer" + str(i)
+			# max out layer
 			if len(units) == 3:
 				activation = self._maxout_layer(self.activations[i], units[0], units[1], units[2],
 					layer_name=name)
+			# full conected layer
 			else:
 				activation = self._fullconect_layer(self.activations[i], units[0], units[1],
 					layer_name=name)
+			# drop out
 			dropped = tf.nn.dropout(activation, self.keep_prob)
 			self.activations[i + 1] = dropped
 		return self.activations[len(self.unit_list)]
@@ -140,6 +150,7 @@ class MaxOut():
 
 			train_step = self._training(loss)
 
+			# prepare output to tensorboard
 			merged = tf.summary.merge_all()
 
 			init = tf.global_variables_initializer()
@@ -161,6 +172,8 @@ class MaxOut():
 							feed_dict=self.feed_dict(True))
 						train_writer.add_summary(summary, i)
 						total_loss += loss_tmp
+
+					# eval test stats
 					if i % self.every_eval == 0:
 						summary, acc_tmp = sess.run([merged, accuracy],
 							feed_dict=self.feed_dict(False))

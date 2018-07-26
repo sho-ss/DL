@@ -7,6 +7,10 @@ __pycache__/
 MNIST_data/
 summary/
 data/
+output/
+test*
+settings.py
+display_gif*
 
 # C extensions
 *.so

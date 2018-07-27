@@ -47,6 +47,11 @@ class GAN():
 		self.plot_cols = settings.plot_cols
 		self.plot_rows = settings.plot_rows
 
+		# output dir of summary
+		self.summary_dir = "./output/summary/"
+		# dir of samples from generator
+		self.generate_samples_dir = "./output/"
+
 	def __save_pkl(self, obj, file_path):
 		max_bytes = 2**31 - 1
 		# write
@@ -170,9 +175,12 @@ class GAN():
 			init = tf.global_variables_initializer()
 
 			with tf.Session() as sess:
-				if os.path.exists("./summary"):
-					shutil.rmtree("./summary")
-				writer = tf.summary.FileWriter("./summary",
+				# remove existing output dir of summary
+				if os.path.exists(self.summary_dir):
+					shutil.rmtree(self.summary_dir)
+				else:
+					os.makedirs(self.summary_dir)
+				writer = tf.summary.FileWriter(self.summary_dir,
 					sess.graph)
 				# initialize variables
 				sess.run(init)
@@ -225,35 +233,8 @@ class GAN():
 						samples.append(sample_gen)
 
 		# save datas
-		self.__save_pkl(epochs, "./output/epochs.pkl")
-		self.__save_pkl(samples, "./output/samples.pkl")
-
-	def check(self):
-		with tf.Graph().as_default():
-			generator_dim = mnist.train.images.shape[1]
-
-			# define G and D
-			generator = ReluNet(n_in=self.__noise_d, n_out=generator_dim, n_hiddens=self.n_hiddens_generator)
-			discriminator = ReluNetD(n_in=generator_dim, n_out=1, n_hiddens=[512, 256], dropout=.5)
-			#MaxOutNetD(n_in=generator_dim, n_out=1, n_channel=50, n_hidden=10, dropout=self.dropout)
-			logits_g = generator.inference()
-
-			# get discriminator vars
-			discriminator_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="Discriminator")
-			# get generator vars
-			generator_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="Generator")
-
-			print("D")
-			for v in discriminator_vars:
-				print(v.name)
-			print("G")
-			for v in generator_vars:
-				print(v.name)
-
-			# get batch norm ops
-			extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-			print("Extra")
-			print(extra_update_ops)
+		self.__save_pkl(epochs, self.generate_samples_dir + "epochs.pkl")
+		self.__save_pkl(samples, self.generate_samples_dir + "samples.pkl")
 
 
 def main():
@@ -270,11 +251,6 @@ def main():
 	gan = GAN(dropout=args.dropout, n_hiddens_generator=[256], lr=args.lr, every_eval=args.every_eval)
 	gan.train(sample_size=args.sample_size, max_iter=args.max_iter, every_samples=args.every_samples)
 
-
-def test():
-	tf.reset_default_graph()
-	gan = GAN(dropout=0.5, n_hiddens_generator=[256])
-	gan.check()
 
 if __name__ == '__main__':
 	#test()

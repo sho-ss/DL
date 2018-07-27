@@ -7,13 +7,13 @@ import os
 import logging
 import shutil
 import argparse
-from generator import ReluNet
-from discriminator import MaxOutNetD, ReluNetD
+from Discriminators import ReluNet as ReluNetD
+from Generators import ReluNet as ReluNetG
 import settings
 old_v = tf.logging.get_verbosity()
 tf.logging.set_verbosity(tf.logging.ERROR)
 from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+mnist = input_data.read_data_sets("../datasets/MNIST_data/", one_hot=True)
 tf.logging.set_verbosity(old_v)
 
 
@@ -48,9 +48,9 @@ class GAN():
 		self.plot_rows = settings.plot_rows
 
 		# output dir of summary
-		self.summary_dir = "./output/summary/"
+		self.summary_dir = "../output/summary/"
 		# dir of samples from generator
-		self.generate_samples_dir = "./output/"
+		self.generate_samples_dir = "../output/"
 
 	def __save_pkl(self, obj, file_path):
 		max_bytes = 2**31 - 1
@@ -116,7 +116,7 @@ class GAN():
 			generator_dim = Xs.shape[1]
 
 			# define G and D
-			generator = ReluNet(n_in=self.__noise_d, n_out=generator_dim, n_hiddens=self.n_hiddens_generator)
+			generator = ReluNetG(n_in=self.__noise_d, n_out=generator_dim, n_hiddens=self.n_hiddens_generator)
 			discriminator = ReluNetD(n_in=generator_dim, n_out=1, n_hiddens=[512, 256], dropout=0.0)
 			#MaxOutNetD(n_in=generator_dim, n_out=1, n_channels=[600, 50], n_hiddens=[150, 10],
 			#	dropout=self.dropout)

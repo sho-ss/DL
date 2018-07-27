@@ -2,7 +2,9 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import pickle
 import os
-import settings
+import sys
+sys.path.append(os.getcwd())
+from models import settings
 
 
 def load_pkl(file_path):

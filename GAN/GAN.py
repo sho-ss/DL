@@ -6,6 +6,7 @@ import pickle
 import os
 import logging
 import shutil
+import argparse
 from generator import ReluNet
 from discriminator import MaxOutNetD, ReluNetD
 import settings
@@ -256,12 +257,18 @@ class GAN():
 
 
 def main():
-	logger = logging.getLogger(__name__)
-	logger.setLevel(logging.DEBUG)
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--dropout", type=float, default=.5, help="dropout rate")
+	parser.add_argument("--lr", type=float, default=0.001, help="learning rate")
+	parser.add_argument("--max-iter", type=int, default=100000, help="num of training of GAN")
+	parser.add_argument("--sample-size", type=int, default=50, help="num of samples per iteration")
+	parser.add_argument("--every-samples", type=int, default=5000, help="sample generated image per this value")
+	parser.add_argument("--every-eval", type=int, default=5000, help="cal test stats per this value")
+	args = parser.parse_args()
 
 	tf.reset_default_graph()
-	gan = GAN(dropout=0.5, n_hiddens_generator=[256], lr=0.001, every_eval=5000)
-	gan.train(sample_size=50, max_iter=100000, every_samples=5000)
+	gan = GAN(dropout=args.dropout, n_hiddens_generator=[256], lr=args.lr, every_eval=args.every_eval)
+	gan.train(sample_size=args.sample_size, max_iter=args.max_iter, every_samples=args.every_samples)
 
 
 def test():

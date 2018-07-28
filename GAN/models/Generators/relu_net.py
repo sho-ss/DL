@@ -51,7 +51,7 @@ class ReluNet():
 			# define placeholder
 			self.x = tf.placeholder(tf.float32, shape=[None, self.n_in], name="input")
 			# used for batch normalization
-			self.is_training = tf.placeholder(tf.bool, name="bn_fool")
+			self.is_training = tf.placeholder(tf.bool, name="bn_bool")
 			input_tensor = self.x
 			activation = None
 			for i in range(n_layer):

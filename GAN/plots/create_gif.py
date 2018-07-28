@@ -2,9 +2,6 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import pickle
 import os
-import sys
-sys.path.append(os.getcwd())
-from models import settings
 
 
 def load_pkl(file_path):
@@ -45,15 +42,17 @@ def create_gif(samples_gen, epochs, cols, rows):
 	ims = init_visualize(samples_gen, axes)
 	#create start
 	ani = animation.FuncAnimation(fig, visualize, fargs=(samples_gen, "epoch: ", epochs, ims),
-		interval=800, frames=len(samples_gen))
-	ani.save('./output/generate_image.gif', writer="imagemagick")
+		interval=100, frames=len(samples_gen))
+	ani.save(os.getcwd() + '/output/generate_image.gif', writer="imagemagick")
 
 
 def main():
-	samples = load_pkl("./output/samples.pkl")
-	epochs = load_pkl("./output/epochs.pkl")
+	samples = load_pkl(os.getcwd() + "/output/samples.pkl")
+	epochs = load_pkl(os.getcwd() + "/output/epochs.pkl")
+	plot_cols = 5
+	plot_rows = 8
 	print(len(samples))
 	print(len(epochs))
-	create_gif(samples_gen=samples, epochs=epochs, cols=settings.plot_cols, rows=settings.plot_rows)
+	create_gif(samples_gen=samples, epochs=epochs, cols=plot_cols, rows=plot_rows)
 
 main()

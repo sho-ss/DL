@@ -1,9 +1,6 @@
 import matplotlib.pyplot as plt
 import pickle
 import os
-import sys
-sys.path.append(os.getcwd())
-from models import settings
 
 
 def load_pkl(file_path):
@@ -25,11 +22,13 @@ def create_png(samples, cols, rows):
 		ax.imshow(im.reshape(28, 28), cmap="gray", interpolation="nearest")
 		ax.axis("off")
 	plt.suptitle("latest output")
-	plt.savefig("./output/generate_imgae.png")
+	plt.savefig(os.getcwd() + "/output/generate_imgae.png")
 
 
 def main():
-	samples = load_pkl("./output/samples.pkl")
-	create_png(samples[-1], cols=settings.plot_cols, rows=settings.plot_rows)
+	samples = load_pkl(os.getcwd() + "/output/samples.pkl")
+	plot_cols = 5
+	plot_rows = 8
+	create_png(samples[-1], cols=plot_cols, rows=plot_rows)
 
 main()

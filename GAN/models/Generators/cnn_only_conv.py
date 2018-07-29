@@ -5,31 +5,32 @@ import shutil
 
 
 class CNNonlyConv():
-	def __init__(self, dim_noise):
+	def __init__(self, channels=[256, 128, 64, 1], widths=[3, 5, 10, 28], kernels=[2, 2, 3]):
 		# inputs dim
-		self.dim_noise = dim_noise
-		self.dim_layer1 = 512
-		self.dim_layer2 = 256
-		self.dim_layer3 = 128
+		self.in_channels = channels[:-1]
+		self.out_channels = channels[1:]
+		self.n_layer = len(channels) - 1
+		# image widths each layer
+		self.widths = widths
+		# conv's kernel size also stride size too
+		self.kernels = kernels
+		# image width in first layer
+		self.first_width = 3
+		self.kernel_size = 2
+		self.kernel_size_last = 3
+
+		self.dim_layer1 = 256
+		self.dim_layer2 = 128
+		self.dim_layer3 = 64
 		self.dim_layer4 = 1
 
 		# define param initializer
 		self.initializer = tf.random_normal_initializer(mean=0.0, stddev=0.02)
+		self.w_initializer = tf.random_normal_initializer(mean=0.0, stddev=0.02)
+		self.b_initializer = tf.zeros_initializer()
 
 		# define batch norm trainable var
 		self.is_training = tf.placeholder(tf.bool, name="bn_bool")
-
-		# initialize weight and bias
-		with tf.name_scope("variables_of_dense"):
-			self.W1 = self._weight_variable(shape=[self.dim_noise, 4 * 4 * self.dim_layer1])
-			self.b1 = self._weight_variable(shape=[4 * 4 * self.dim_layer1])
-		# conv weights
-		with tf.name_scope("filter_of_conv0"):
-			self.W2 = self._weight_variable(shape=[3, 3, self.dim_layer2, self.dim_layer1])
-		with tf.name_scope("filter_of_conv1"):
-			self.W3 = self._weight_variable(shape=[3, 3, self.dim_layer3, self.dim_layer2])
-		with tf.name_scope("filter_of_conv2"):
-			self.W4 = self._weight_variable(shape=[3, 3, self.dim_layer4, self.dim_layer3])
 
 	def _weight_variable(self, shape):
 		return tf.Variable(self.initializer(shape=shape))
@@ -37,32 +38,37 @@ class CNNonlyConv():
 	def _bias_variable(self, shape):
 		return tf.Variable(self.initializer(shape=shape))
 
-	def inference(self, name):
+	def inference(self, input_tensor, name):
 		with tf.name_scope(name):
-			with tf.name_scope("input"):
-				self.x = tf.placeholder(tf.float32, shape=(None, self.dim_noise))
-			batch_size = tf.shape(self.x)[0]
-			with tf.name_scope("layer0"):
-				z = tf.matmul(self.x, self.W1) + self.b1
-				z_ = tf.reshape(z, shape=[-1, 4, 4, self.dim_layer1])
-				z_bn = tf.layers.batch_normalization(z_, training=self.is_training)
+			batch_size = tf.shape(input_tensor)[0]
+			with tf.name_scope("layer0_dense"):
+				units = self.widths[0] * self.widths[0] * self.in_channels[0]
+				z = tf.layers.dense(input_tensor, units=units, kernel_initializer=self.initializer)
+				z = tf.reshape(z, shape=[-1, self.widths[0], self.widths[0], self.in_channels[0]])
+				z_bn = tf.layers.batch_normalization(z, training=self.is_training)
 				activation = tf.nn.relu(z_bn)
-			# compute batch size
-			#batch_size = tf.shape(activation)[0]
-			with tf.name_scope("conv_layer0"):
-				z1 = tf.nn.conv2d_transpose(activation, self.W2,
-					output_shape=[batch_size, 7, 7, self.dim_layer2], strides=[1, 2, 2, 1])
-				z1_bn = tf.layers.batch_normalization(z1, training=self.is_training)
-				activation = tf.nn.relu(z1_bn)
-			with tf.name_scope("conv_layer1"):
-				z2 = tf.nn.conv2d_transpose(activation, self.W3,
-					output_shape=[batch_size, 14, 14, self.dim_layer3], strides=[1, 2, 2, 1])
-				z2_bn = tf.layers.batch_normalization(z2, training=self.is_training)
-				activation = tf.nn.relu(z2_bn)
-			with tf.name_scope("conv_layer2"):
-				z3 = tf.nn.conv2d_transpose(activation, self.W4,
-					output_shape=[batch_size, 28, 28, self.dim_layer4], strides=[1, 2, 2, 1])
-				activation = tf.nn.sigmoid(z3)
+			for i in range(self.n_layer):
+				with tf.variable_scope("conv{}".format(i + 1)):
+					# get weights and bias
+					w_shape = [self.kernels[i], self.kernels[i], self.out_channels[i], self.in_channels[i]]
+					W = tf.get_variable("weights", shape=w_shape,
+						dtype=tf.float32, initializer=self.w_initializer)
+					b = tf.get_variable("bias", shape=[self.out_channels[i]])
+					# conv
+					z = tf.nn.conv2d_transpose(activation, W,
+						output_shape=[batch_size, self.widths[i + 1], self.widths[i + 1], self.out_channels[i]],
+						strides=[1, self.kernels[i], self.kernels[i], 1])
+					z = tf.nn.bias_add(z, b)
+					# use batch norm except last layer
+					# activation is relu except last layer, last layer's act is sigmoid
+					if i != self.n_layer - 1:
+						with tf.name_scope("batch_norm"):
+							z = tf.layers.batch_normalization(z, training=self.is_training)
+						with tf.name_scope("activation"):
+							activation = tf.nn.relu(z)
+					else:
+						with tf.name_scope("activation"):
+							activation = tf.nn.sigmoid(z)
 		return activation
 
 
@@ -75,9 +81,10 @@ def main():
 	z = np.random.multivariate_normal(mean, cov, 50)
 
 	with tf.Graph().as_default():
+		x = tf.placeholder(tf.float32, shape=(None, dim_noise))
 		with tf.name_scope("Generator"):
-			conv_net = CNNonlyConv(dim_noise=dim_noise)
-			logit = conv_net.inference("inference")
+			conv_net = CNNonlyConv()
+			logit = conv_net.inference(x, "inference")
 
 		init = tf.global_variables_initializer()
 		with tf.Session() as sess:
@@ -89,7 +96,7 @@ def main():
 			writer = tf.summary.FileWriter(__summary_dir,
 				sess.graph)
 			sess.run(init)
-			ans = sess.run(logit, feed_dict={conv_net.x: z, conv_net.is_training: False})
+			ans = sess.run(logit, feed_dict={x: z, conv_net.is_training: False})
 			print(ans.shape)
 
 if __name__ == '__main__':

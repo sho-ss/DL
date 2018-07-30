@@ -42,7 +42,7 @@ def create_gif(samples_gen, epochs, cols, rows):
 	ims = init_visualize(samples_gen, axes)
 	#create start
 	ani = animation.FuncAnimation(fig, visualize, fargs=(samples_gen, "epoch: ", epochs, ims),
-		interval=100, frames=len(samples_gen))
+		interval=500, frames=len(samples_gen))
 	ani.save(os.getcwd() + '/output/generate_image.gif', writer="imagemagick")
 
 

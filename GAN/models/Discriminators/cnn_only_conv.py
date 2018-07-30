@@ -23,12 +23,6 @@ class CNNonlyConv():
 		self.w_initializer = tf.random_normal_initializer(mean=0.0, stddev=0.02)
 		self.b_initializer = tf.zeros_initializer()
 
-		# define keep prob
-		self.keep_prob = tf.placeholder(tf.float32, name="keep_prob")
-
-		# define batch norm trainable var
-		self.is_training = tf.placeholder(tf.bool, name="bn_bool")
-
 	def _global_average_pool(self, x):
 		for _ in range(2):
 			x = tf.reduce_mean(x, axis=[1])
@@ -57,14 +51,20 @@ class CNNonlyConv():
 				with tf.name_scope("leaky_relu"):
 					activation = tf.nn.leaky_relu(z)
 
-		with tf.variable_scope("dense_layer{}".format(self.n_layer), reuse=reuse):
-			w_shape = [self.out_channels[-1] * self.widths[-1] * self.widths[-1], self.out_dim]
+		with tf.variable_scope("conv{}".format(self.n_layer), reuse=reuse):
+			w_shape = [1, 1, self.out_channels[-1], self.out_dim]
 			# if variable that have same scope exits, get that variable(reuse)
 			W = tf.get_variable("weights", shape=w_shape,
 				dtype=tf.float32, initializer=self.w_initializer)
-			b = tf.get_variable("bias", shape=[self.out_dim],
-				dtype=tf.float32, initializer=self.b_initializer)
-
+			#b = tf.get_variable("bias", shape=[self.out_dim],
+			#	dtype=tf.float32, initializer=self.b_initializer)
+			with tf.name_scope("global_avg_pool"):
+				z = tf.nn.conv2d(activation, W, strides=[1, 1, 1, 1], padding="SAME")
+				z = tf.reduce_mean(z, [1, 2])
+			with tf.name_scope("sigmoid"):
+				activation = tf.nn.sigmoid(z)
+		return activation
+		"""
 			activation = tf.layers.flatten(activation)
 			z = tf.matmul(activation, W) + b
 			with tf.name_scope("batch_norm"):
@@ -74,6 +74,7 @@ class CNNonlyConv():
 				activation = tf.nn.sigmoid(z)
 
 		return activation
+		"""
 
 
 def main():
@@ -100,7 +101,7 @@ def main():
 			writer = tf.summary.FileWriter(__summary_dir,
 				sess.graph)
 			sess.run(init)
-			ans = sess.run(logit, feed_dict={x: xs, conv_net.is_training: False, conv_net.keep_prob: 1.0})
+			ans = sess.run(logit, feed_dict={x: xs})
 			print(ans.shape)
 
 

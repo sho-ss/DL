@@ -29,8 +29,9 @@ class CNNonlyConv():
 			z = tf.layers.dense(input_tensor, units=units, kernel_initializer=self.w_initializer)
 			z = tf.reshape(z, shape=[-1, self.widths[0], self.widths[0], self.in_channels[0]])
 			with tf.name_scope("batch_norm"):
-				mean, variance = tf.nn.moments(z, axes=[0])
-				z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
+				z = tf.layers.batch_normalization(z, training=self.is_training)
+				#mean, variance = tf.nn.moments(z, axes=[0])
+				#z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
 			with tf.name_scope("relu"):
 				activation = tf.nn.relu(z)
 		for i in range(self.n_layer):
@@ -49,8 +50,9 @@ class CNNonlyConv():
 				# activation is relu except last layer, last layer's act is sigmoid
 				if i != self.n_layer - 1:
 					with tf.name_scope("batch_norm"):
-						mean, variance = tf.nn.moments(z, axes=[0, 1, 2])
-						z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
+						z = tf.layers.batch_normalization(z, training=self.is_training)
+						#mean, variance = tf.nn.moments(z, axes=[0, 1, 2])
+						#z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
 					with tf.name_scope("relu"):
 						activation = tf.nn.relu(z)
 				else:
@@ -66,7 +68,7 @@ def main():
 	mean = np.zeros(dim_noise)
 	cov = np.eye(dim_noise)
 	z = np.random.multivariate_normal(mean, cov, 50)
-
+	tf.reset_default_graph()
 	with tf.Graph().as_default():
 		x = tf.placeholder(tf.float32, shape=(None, dim_noise))
 		with tf.name_scope("Generator"):

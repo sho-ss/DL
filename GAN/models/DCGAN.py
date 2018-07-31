@@ -144,14 +144,18 @@ class DCGAN():
 
 			# define G and D
 			with tf.variable_scope("Generator"):
-				generator = CNNonlyConvG(channels=[256, 128, 64, 1], widths=[3, 5, 10, 28],
-					kernels=[2, 2, 3])
+				generator = CNNonlyConvG(fullconect_units=[self.dim_noise, 1024],
+					channels=[128, 64, 1], widths=[7, 14, 28],
+					kernels=[5, 5], strides=[2, 2],
+					w_initializer=tf.random_normal_initializer(0.0, 0.02))
 				# inference discriminator and generator
 				with tf.name_scope("inference"):
 					logits_g = generator.inference(input_noise)
 			with tf.variable_scope("Discriminator"):
-				discriminator = CNNonlyConvD(channels=[1, 64, 128, 256], widths=[28, 10, 5, 3],
-					kernels=[3, 2, 2], out_dim=1)
+				discriminator = CNNonlyConvD(fullconect_units=[256, 1],
+					channels=[1, 64, 128], widths=[28, 14, 7],
+					kernels=[5, 5], strides=[2, 2],
+					w_initializer=tf.random_normal_initializer(0.0, 0.02))
 				with tf.name_scope("inference_data"):
 					logits_d_data = discriminator.inference(input_data, reuse=False)
 				with tf.name_scope("inference_sample"):

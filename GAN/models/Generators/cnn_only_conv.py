@@ -5,13 +5,19 @@ import shutil
 
 
 class CNNonlyConv():
-	def __init__(self, in_dim, channels=[256, 128, 64, 1], widths=[3, 5, 10, 28],
-		kernels=[2, 2, 3], strides=[2, 2, 3]):
-		# input dimention
-		self.in_dim = in_dim
+	def __init__(self, fullconect_units=[100, 1024], channels=[128, 64, 1], widths=[7, 14, 28],
+		kernels=[5, 5], strides=[2, 2],
+		w_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+		b_initializer=tf.zeros_initializer()):
+		# full conect layer's units
+		fullconect_units.append(widths[0] * widths[0] * channels[0])
+		self.in_dense_units = fullconect_units[:-1]
+		self.out_dense_units = fullconect_units[1:]
 		# convolution's channels
 		self.in_channels = channels[:-1]
 		self.out_channels = channels[1:]
+		# layer num
+		self.n_dense_layer = len(fullconect_units) - 1
 		self.n_layer = len(channels) - 1
 		# image widths each layer
 		self.widths = widths
@@ -22,31 +28,37 @@ class CNNonlyConv():
 
 		# define param initializer
 		#self.w_initializer = tf.random_normal_initializer(mean=0.0, stddev=0.02)
-		self.w_initializer = tf.contrib.layers.xavier_initializer_conv2d()
-		self.b_initializer = tf.zeros_initializer()
+		self.w_initializer = w_initializer
+		self.b_initializer = b_initializer
 
 		# define batch norm trainable var
 		self.is_training = tf.placeholder(tf.bool, name="bn_bool")
 
 	def inference(self, input_tensor):
 		batch_size = tf.shape(input_tensor)[0]
-		with tf.variable_scope("layer0_dense"):
-			units = self.widths[0] * self.widths[0] * self.in_channels[0]
-			w_shape = [self.in_dim, units]
-			W = tf.get_variable("weights", shape=w_shape,
-				dtype=tf.float32, initializer=self.w_initializer)
-			b = tf.get_variable("bias", shape=[units],
-					dtype=tf.float32, initializer=self.b_initializer)
-			z = tf.matmul(input_tensor, W) + b
-			z = tf.reshape(z, shape=[-1, self.widths[0], self.widths[0], self.in_channels[0]])
-			with tf.name_scope("batch_norm"):
-				#z = tf.layers.batch_normalization(z, training=self.is_training)
-				mean, variance = tf.nn.moments(z, axes=[0])
-				z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
-			with tf.name_scope("relu"):
-				activation = tf.nn.relu(z)
+		activation = input_tensor
+		for i in range(self.n_dense_layer):
+			with tf.variable_scope("dense{}".format(i)):
+				w_shape = [self.in_dense_units[i], self.out_dense_units[i]]
+				W = tf.get_variable("weights", shape=w_shape,
+					dtype=tf.float32, initializer=self.w_initializer)
+				b = tf.get_variable("bias", shape=[self.out_dense_units[i]],
+						dtype=tf.float32, initializer=self.b_initializer)
+				z = tf.matmul(activation, W) + b
+				# batch normalization
+				with tf.name_scope("batch_norm"):
+					mean, variance = tf.nn.moments(z, axes=[0])
+					z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-05)
+				with tf.name_scope("relu"):
+					activation = tf.nn.relu(z)
+
+				# output that last of dense layer, convert to image
+				if i == self.n_dense_layer - 1:
+					with tf.name_scope("to_image"):
+						activation = tf.reshape(activation, shape=[-1, self.widths[0], self.widths[0], self.in_channels[0]])
+
 		for i in range(self.n_layer):
-			with tf.variable_scope("conv{}".format(i + 1)):
+			with tf.variable_scope("conv{}".format(i + self.n_dense_layer)):
 				# get weights and bias
 				w_shape = [self.kernels[i], self.kernels[i], self.out_channels[i], self.in_channels[i]]
 				W = tf.get_variable("weights", shape=w_shape,
@@ -64,7 +76,7 @@ class CNNonlyConv():
 					with tf.name_scope("batch_norm"):
 						#z = tf.layers.batch_normalization(z, training=self.is_training)
 						mean, variance = tf.nn.moments(z, axes=[0, 1, 2])
-						z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
+						z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-05)
 					with tf.name_scope("relu"):
 						activation = tf.nn.relu(z)
 				else:
@@ -84,7 +96,7 @@ def main():
 	with tf.Graph().as_default():
 		x = tf.placeholder(tf.float32, shape=(None, dim_noise))
 		with tf.name_scope("Generator"):
-			conv_net = CNNonlyConv(in_dim=dim_noise)
+			conv_net = CNNonlyConv()
 			logit = conv_net.inference(x)
 
 		init = tf.global_variables_initializer()

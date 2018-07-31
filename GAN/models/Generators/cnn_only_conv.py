@@ -5,18 +5,24 @@ import shutil
 
 
 class CNNonlyConv():
-	def __init__(self, channels=[256, 128, 64, 1], widths=[3, 5, 10, 28], kernels=[2, 2, 3]):
+	def __init__(self, in_dim, channels=[256, 128, 64, 1], widths=[3, 5, 10, 28],
+		kernels=[2, 2, 3], strides=[2, 2, 3]):
+		# input dimention
+		self.in_dim = in_dim
 		# convolution's channels
 		self.in_channels = channels[:-1]
 		self.out_channels = channels[1:]
 		self.n_layer = len(channels) - 1
 		# image widths each layer
 		self.widths = widths
-		# conv's kernel size also stride size too
+		# conv's kernel size
 		self.kernels = kernels
+		# conv's stride size
+		self.strides = strides
 
 		# define param initializer
-		self.w_initializer = tf.random_normal_initializer(mean=0.0, stddev=0.02)
+		#self.w_initializer = tf.random_normal_initializer(mean=0.0, stddev=0.02)
+		self.w_initializer = tf.contrib.layers.xavier_initializer_conv2d()
 		self.b_initializer = tf.zeros_initializer()
 
 		# define batch norm trainable var
@@ -24,14 +30,19 @@ class CNNonlyConv():
 
 	def inference(self, input_tensor):
 		batch_size = tf.shape(input_tensor)[0]
-		with tf.name_scope("layer0_dense"):
+		with tf.variable_scope("layer0_dense"):
 			units = self.widths[0] * self.widths[0] * self.in_channels[0]
-			z = tf.layers.dense(input_tensor, units=units, kernel_initializer=self.w_initializer)
+			w_shape = [self.in_dim, units]
+			W = tf.get_variable("weights", shape=w_shape,
+				dtype=tf.float32, initializer=self.w_initializer)
+			b = tf.get_variable("bias", shape=[units],
+					dtype=tf.float32, initializer=self.b_initializer)
+			z = tf.matmul(input_tensor, W) + b
 			z = tf.reshape(z, shape=[-1, self.widths[0], self.widths[0], self.in_channels[0]])
 			with tf.name_scope("batch_norm"):
-				z = tf.layers.batch_normalization(z, training=self.is_training)
-				#mean, variance = tf.nn.moments(z, axes=[0])
-				#z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
+				#z = tf.layers.batch_normalization(z, training=self.is_training)
+				mean, variance = tf.nn.moments(z, axes=[0])
+				z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
 			with tf.name_scope("relu"):
 				activation = tf.nn.relu(z)
 		for i in range(self.n_layer):
@@ -40,19 +51,20 @@ class CNNonlyConv():
 				w_shape = [self.kernels[i], self.kernels[i], self.out_channels[i], self.in_channels[i]]
 				W = tf.get_variable("weights", shape=w_shape,
 					dtype=tf.float32, initializer=self.w_initializer)
-				b = tf.get_variable("bias", shape=[self.out_channels[i]])
+				b = tf.get_variable("bias", shape=[self.out_channels[i]],
+					dtype=tf.float32, initializer=self.b_initializer)
 				# conv
 				z = tf.nn.conv2d_transpose(activation, W,
 					output_shape=[batch_size, self.widths[i + 1], self.widths[i + 1], self.out_channels[i]],
-					strides=[1, self.kernels[i], self.kernels[i], 1])
+					strides=[1, self.strides[i], self.strides[i], 1])
 				z = tf.nn.bias_add(z, b)
 				# use batch norm except last layer
 				# activation is relu except last layer, last layer's act is sigmoid
 				if i != self.n_layer - 1:
 					with tf.name_scope("batch_norm"):
-						z = tf.layers.batch_normalization(z, training=self.is_training)
-						#mean, variance = tf.nn.moments(z, axes=[0, 1, 2])
-						#z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
+						#z = tf.layers.batch_normalization(z, training=self.is_training)
+						mean, variance = tf.nn.moments(z, axes=[0, 1, 2])
+						z = tf.nn.batch_normalization(z, mean, variance, None, None, 1e-08)
 					with tf.name_scope("relu"):
 						activation = tf.nn.relu(z)
 				else:
@@ -72,7 +84,7 @@ def main():
 	with tf.Graph().as_default():
 		x = tf.placeholder(tf.float32, shape=(None, dim_noise))
 		with tf.name_scope("Generator"):
-			conv_net = CNNonlyConv()
+			conv_net = CNNonlyConv(in_dim=dim_noise)
 			logit = conv_net.inference(x)
 
 		init = tf.global_variables_initializer()

@@ -5,7 +5,8 @@ import shutil
 
 
 class CNNonlyConv():
-	def __init__(self, out_dim=1, channels=[1, 64, 128, 256], widths=[28, 10, 5, 3], kernels=[3, 2, 2]):
+	def __init__(self, out_dim=1, channels=[1, 64, 128, 256], widths=[28, 10, 5, 3],
+		kernels=[3, 2, 2], strides=[3, 2, 2]):
 		# convolution's channels
 		self.in_channels = channels[:-1]
 		self.out_channels = channels[1:]
@@ -13,14 +14,17 @@ class CNNonlyConv():
 
 		# image widths each layer
 		self.widths = widths
-		# conv's kernel size also stride size too
+		# conv's kernel size
 		self.kernels = kernels
+		# conv's stride size
+		self.strides = strides
 
 		# output dim
 		self.out_dim = out_dim
 
 		# define param initializer
-		self.w_initializer = tf.random_normal_initializer(mean=0.0, stddev=0.02)
+		#self.w_initializer = tf.random_normal_initializer(mean=0.0, stddev=0.02)
+		self.w_initializer = tf.contrib.layers.xavier_initializer_conv2d()
 		self.b_initializer = tf.zeros_initializer()
 
 	def _global_average_pool(self, x):
@@ -39,7 +43,7 @@ class CNNonlyConv():
 				b = tf.get_variable("bias", shape=[self.out_channels[i]],
 					dtype=tf.float32, initializer=self.b_initializer)
 
-				z = tf.nn.conv2d(activation, W, strides=[1, self.kernels[i], self.kernels[i], 1],
+				z = tf.nn.conv2d(activation, W, strides=[1, self.strides[i], self.strides[i], 1],
 					padding="SAME")
 
 				z = tf.nn.bias_add(z, b)
